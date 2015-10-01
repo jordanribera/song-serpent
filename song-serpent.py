@@ -2,6 +2,7 @@
 
 import tweepy
 import json
+import os.path
 
 def is_mention(word):
 	if word.startswith("@"):
@@ -37,8 +38,19 @@ def clean_tweet(original_text):
 if __name__ == "__main__":
 
 	# load config
-	with open ("credentials.json", "r") as f:
-		credentials = json.load(f)
+	if os.path.isfile("credentials.json"):
+		try:
+			with open ("credentials.json", "r") as f:
+				credentials = json.load(f)
+		except ValueError:
+			print "credentials.json is malformed."
+			exit()
+	else:
+		empty_credentials = {u'consumer-key': u'', u'consumer-secret': u'', u'access-token': u'', u'access-token-secret': '', u'user-name': u''}
+		with open ("credentials.json", "w") as f:
+			json.dump(empty_credentials, f, indent=4, separators=(',', ':'))
+		print "credentials.json is missing. i've created a blank one for you."
+		exit()
 
 	# authenticate
 	auth = tweepy.OAuthHandler(credentials["consumer-key"], credentials["consumer-secret"])
@@ -48,6 +60,9 @@ if __name__ == "__main__":
 	api = tweepy.API(auth)
 
 	#show my tweets
-	my_tweets = api.user_timeline(credentials["user-name"], count=100)
-	for tweet in my_tweets:
-		print clean_tweet(tweet.text)
+	try:
+		my_tweets = api.user_timeline(credentials["user-name"], count=100)
+		for tweet in my_tweets:
+			print clean_tweet(tweet.text)
+	except:
+		print "there was a problem fetching tweets. check your credentials."
