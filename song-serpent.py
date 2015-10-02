@@ -1,8 +1,12 @@
 #!/usr/bin/env python
 
+import sys
+
 import tweepy
 import json
 import os.path
+import redis
+from markov import Markov
 
 def is_mention(word):
 	if word.startswith("@"):
@@ -31,12 +35,11 @@ def clean_tweet(original_text):
 	for bad_word in bad_words:
 		words.remove(bad_word)
 
-	output = " ".join(words)
+	#output = " ".join(words)
 	#print "    OUTPUT: " + output
-	return output
+	return words
 
-if __name__ == "__main__":
-
+def index_feed(target):
 	# load config
 	if os.path.isfile("credentials.json"):
 		try:
@@ -59,10 +62,42 @@ if __name__ == "__main__":
 	# connect to the api
 	api = tweepy.API(auth)
 
+	#add tweets to redis
+	tweet_data = Markov(target)
+
 	#show my tweets
 	try:
-		my_tweets = api.user_timeline(credentials["user-name"], count=100)
+		my_tweets = api.user_timeline(target, count=20000)
 		for tweet in my_tweets:
-			print clean_tweet(tweet.text)
-	except:
-		print "there was a problem fetching tweets. check your credentials."
+			cleaned_tweet = clean_tweet(tweet.text)
+			tweet_string = " ".join(cleaned_tweet)
+			print 'indexing tweet: "' + tweet_string + '"'
+			tweet_data.add_line_to_index(cleaned_tweet)
+	except Exception as e:
+		print e
+
+def make_tweet(target):
+	target_data = Markov(target)
+
+	output_tweet = target_data.generate(max_words=10)
+	return output_tweet
+
+if __name__ == "__main__":
+
+	if len(sys.argv) < 2:
+		print "tell me what to do..."
+		exit()
+	else:
+		operation = sys.argv[1]
+
+		if operation == 'index':
+			target = sys.argv[2]
+
+			index_feed(target)
+			exit()
+
+		if operation == 'tweet':
+			target = sys.argv[2]
+
+			print make_tweet(target)
+			exit()
